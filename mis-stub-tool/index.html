@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self' 'unsafe-inline'; worker-src 'self' file: blob:; connect-src 'self' blob: data:; img-src 'self' data: blob:;">
+<title>MiS Stub Tool</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mute:#667085;--line:#e1e5eb;--acc:#1f6feb;--ok:#177245;--warn:#b54708;--bad:#b42318}
+  @media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1a2029;--ink:#e8ecf2;--mute:#97a1b0;--line:#2b3441;--acc:#5a9bff;--ok:#4cc38a;--warn:#f5a623;--bad:#ff7b72}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  main{max-width:1000px;margin:0 auto;padding:24px 16px 80px}
+  h1{font-size:22px;margin:0 0 4px}
+  .slogan{font-size:16px;font-weight:600;color:var(--acc);margin:0 0 8px}
+  .sub{color:var(--mute);margin:0 0 20px}
+  .badge{display:inline-block;background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok);border-radius:99px;padding:2px 10px;font-size:13px;font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:16px;margin:0 0 10px}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--mute);cursor:pointer}
+  .drop.over{border-color:var(--acc);color:var(--acc)}
+  .drop b{color:var(--ink)}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .mute{color:var(--mute)}
+  button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 14px;cursor:pointer}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input[type=text],select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  progress{width:100%;height:10px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{position:sticky;top:0;background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+  .scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .stat{background:var(--bg);border-radius:8px;padding:10px 12px}
+  .stat b{display:block;font-size:20px}
+  details summary{cursor:pointer;color:var(--mute)}
+  .hidden{display:none}
+  code{background:var(--bg);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>MiS Stub Tool <span class="badge">100% local</span></h1>
+  <p class="slogan">Making it easy to find the stubs that are relevant to you.</p>
+  <p class="sub">Pulls out only <b>our</b> payment stubs (matched against the Payments Database), one PDF per payment, named by who was paid and when. Nothing is uploaded: files are read and processed inside this browser tab only.</p>
+
+  <div class="card">
+    <h2>1. Payments Database (Excel)</h2>
+    <div class="drop" id="dropDb"><b>Click or drop</b> the PAYMENTS DATABASE .xlsx here</div>
+    <input type="file" id="fileDb" accept=".xlsx,.xlsm,.xls" class="hidden">
+    <p id="dbInfo" class="mute" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="card">
+    <h2>2. Payment stub PDFs</h2>
+    <div class="drop" id="dropPdf"><b>Click or drop</b> the STUBS PDF files here (select many, or drop the unzipped folder)</div>
+    <input type="file" id="filePdf" accept=".pdf,application/pdf" multiple class="hidden">
+    <p id="pdfInfo" class="mute" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="card">
+    <h2>3. Scan</h2>
+    <div class="row"><button class="primary" id="btnScan" disabled>Find our payments</button><span id="scanStatus" class="mute"></span></div>
+    <progress id="prog" value="0" max="1" class="hidden" style="margin-top:12px"></progress>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="card">
+      <h2>Results</h2>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <h2>4. Choose what to extract</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="filter" placeholder="Search payee, e.g. MATHOLE" size="28">
+        <button id="btnAll">Select shown</button>
+        <button id="btnNone">Clear shown</button>
+        <span id="selCount" class="mute"></span>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th></th><th>Paid to (database name)</th><th>Date paid</th><th>Disbursement</th><th class="num">Stub total</th><th>Source</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="row" style="margin-top:14px">
+        <label><input type="checkbox" id="optFolders" checked> Put each payee in its own folder</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="btnZip">Download as ZIP</button>
+        <button id="btnDir">Save straight into a folder…</button>
+        <span id="outStatus" class="mute"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Checks</h2>
+      <details id="detUnmatched"><summary id="sumUnmatched"></summary><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Sheet</th><th>Supplier</th><th>Disbursement</th><th>Payment ref</th><th class="num">Amount</th></tr></thead><tbody id="unmatchedRows"></tbody></table></div></details>
+      <details id="detWarn" style="margin-top:8px"><summary id="sumWarn"></summary><ul id="warnList"></ul></details>
+      <details id="detUnread" style="margin-top:8px"><summary id="sumUnread"></summary><ul id="unreadList"></ul></details>
+    </div>
+  </div>
+</main>
+
+<script src="lib/pdf.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
